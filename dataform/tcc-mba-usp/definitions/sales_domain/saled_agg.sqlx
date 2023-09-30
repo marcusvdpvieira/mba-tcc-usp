@@ -1,0 +1,46 @@
+config {
+  schema: "analytics_gold",
+  name: "sales_agg",
+  type: "table",
+  description: "Contains the games' sales aggregated and joined with 'games_silver.games_treated'. The table is updated every hour.",
+  columns: {
+    game_id: "Game's unique ID.",
+    game_name: "Game's name.",
+    date: "Date of reference.",
+    sales_qty: "Sales quantity.",
+    discount_sales_qty: "Discount sales quantity.",
+    average_discount: "Average discount per sale.",
+    average_actual_price: "Average actual price per sale.",
+    average_paid_price: "Average paid price per sale.",
+    total_actual_price: "Total actual price.",
+    total_paid_price: "Total paid price.",
+  },
+  tags: ["hourly"],
+  assertions: {
+    nonNull: ["game_id"],
+    uniqueKey: ["game_id", "date"]
+  },
+  dependencies: ["sales_treated", "games_treated"] 
+}
+
+SELECT
+  g.game_id,
+  g.game_name,
+  DATE(s.purchased_at) AS date,
+  COUNT(s.sale_id) AS sales_qty,
+  COUNTIF(s.discount_percent > 0) AS discount_sales_qty,
+  ROUND(AVG(s.discount_percent), 2) AS average_discount,
+  ROUND(AVG(s.actual_price), 2) AS average_actual_price,
+  ROUND(AVG(s.paid_price), 2) AS average_paid_price,
+  ROUND(SUM(s.actual_price), 2) AS total_actual_price,
+  ROUND(SUM(s.paid_price), 2) AS total_paid_price,
+FROM
+  `ivory-setup-377000.sales_silver.sales_treated` s
+LEFT JOIN
+  `ivory-setup-377000.games_silver.games_treated` g
+USING
+  (steam_app_id)
+GROUP BY
+  g.game_id,
+  g.game_name,
+  DATE(s.purchased_at)
