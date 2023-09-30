@@ -1,0 +1,51 @@
+config {
+  schema: "games_silver",
+  name: "transactions_treated",
+  type: "table",
+  description: "Contains the games transactions events. The table is updated every minute.",
+  columns: {
+    transaction_id: "Transaction's unique ID.",
+    game_id: "Game ID where the transaction took place.",
+    user_id: "User ID who effectived the transaction.",
+    event_at: "Timestamp that the transaction occurred at.",
+    transaction_type: "Type of the transaction. Values: 'premium_coin', 'normal_coin' or 'cosmetic_item'.",
+    value: "Value of the transaction."
+  },
+  tags: ["every_minute"],
+  assertions: {
+    nonNull: ["transaction_id"],
+    uniqueKey: ["transaction_id"]
+  },
+  bigquery: {
+    partitionBy: "DATE_TRUNC(event_at, DAY)"
+  }
+}
+
+
+SELECT
+  IFNULL(transactionId, CONCAT('transaction_', EXTRACT(HOUR
+      FROM
+        TIMESTAMP(eventTimestamp)), EXTRACT(MINUTE
+      FROM
+        TIMESTAMP(eventTimestamp)), gameId, SAFE_CAST(ROUND(value) AS STRING))) AS transaction_id,
+CASE
+    WHEN gameId = '0001' THEN '1001'
+    WHEN gameId = '0002' THEN '1002'
+    WHEN gameId = '0003' THEN '1003'
+    WHEN gameId = '0004' THEN '1004'
+  ELSE
+  gameId
+END
+  AS game_id,
+  userId AS user_id,
+  DATETIME(TIMESTAMP(eventTimestamp), "America/Sao_Paulo") AS event_at,
+  CASE
+    WHEN transactionType = 'premiumcoin' THEN 'premium_coin'
+    WHEN transactionType = 'normalcoin' THEN 'normal_coin'
+  ELSE
+  transactionType
+END
+  AS transaction_type,
+  value
+FROM
+  `games_bronze.transactions_raw`
