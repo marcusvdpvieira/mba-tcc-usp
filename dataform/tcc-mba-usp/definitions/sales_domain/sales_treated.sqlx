@@ -1,0 +1,38 @@
+config {
+  schema: "sales_silver",
+  name: "sales_treated",
+  type: "table",
+  description: "Contains the games' sales. The table is updated every 10 minutes.",
+  columns: {
+    sale_id: "Sale's unique ID.",
+    steam_app_id: "Game's Steam ID.",
+    steam_game_name: "Game's Steam Name.",
+    purchased_at: "Date when the game was released at.",
+    sale_currency: "Currency which the sale used.",
+    actual_price: "Actual price of the game.",
+    discount_percent: "Percentage of discount for the sale.",
+    paid_price: "Paid price by the customer."
+  },
+  tags: ["every_10_minutes"],
+  assertions: {
+    nonNull: ["steam_app_id"],
+    uniqueKey: ["sale_id"]
+  },
+  bigquery: {
+    partitionBy: "DATE_TRUNC(purchased_at, DAY)"
+  }
+}
+
+SELECT
+  saleId AS sale_id,
+  steam_appid AS steam_app_id,
+  name AS steam_game_name,
+  DATETIME(TIMESTAMP(purchasedAt), "America/Sao_Paulo") AS purchased_at,
+  currency AS sale_currency,
+  initial / 100 AS actual_price,
+  discount_percent,
+  final / 100 AS paid_price
+FROM
+  `sales_bronze.sales_raw`
+WHERE
+  currency IN ('USD', 'CAD')
