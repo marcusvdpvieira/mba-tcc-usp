@@ -1,0 +1,31 @@
+config {
+  schema: "customer_support_silver",
+  name: "reviews_treated",
+  type: "table",
+  description: "Contains the games' review info. The table is updated every hour.",
+  columns: {
+    steam_app_id: "Game's unique ID from the Steam platform.",
+    extracted_at: "Datetime when the data was extracted.",
+    review_score: "Score of the game's review. Goes from 1 to 10.",
+    review_score_desc: "Description of the game's review score.",
+    total_positive: "Total number of positive reviews.",
+    total_negative: "Total number of negative reviews.",
+    total_reviews: "Total number of reviews."
+  },
+  tags: ["hourly"],
+  assertions: {
+    nonNull: ["steam_app_id"],
+    uniqueKey: ["steam_app_id", "DATE_TRUNC(extracted_at, HOUR)"]
+  }
+}
+
+SELECT
+  gameId as steam_app_id,
+  FetchedAt AS extracted_at,
+  review_score,
+  review_score_desc,
+  total_positive,
+  total_negative,
+  total_reviews
+FROM
+  `ivory-setup-377000.customer_support_bronze.reviews_raw`
