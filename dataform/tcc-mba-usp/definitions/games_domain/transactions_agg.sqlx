@@ -1,0 +1,68 @@
+config {
+  schema: "analytics_gold",
+  name: "transactions_agg",
+  type: "table",
+  description: "Contains the games' transactions aggregated and joined with 'games_silver.games_treated'. The table is updated every hour.",
+  columns: {
+    game_id: "Game's unique ID.",
+    game_name: "Game's name.",
+    date: "Date of reference.",
+    transactions_qty: "Transactions quantity.",
+    distinct_users_qty: "Distinct paying users quantity.",
+    normal_coin_value_transacted: "Sum of the value transactioned on normal coins.",
+    premium_coin_value_transacted: "Sum of the value transactioned on premium coins.",
+    cosmetic_item_value_transacted: "Sum of the value transactioned on cosmetic items.",
+    total_transacted: "Sum of the total value transactioned."
+  },
+  tags: ["hourly"],
+  assertions: {
+    nonNull: ["game_id"],
+    uniqueKey: ["game_id", "date"]
+  },
+  dependencies: ["transactions_treated", "games_treated"] 
+}
+
+WITH
+  transactions_treated AS (
+  SELECT
+    game_id,
+    event_at,
+    transaction_id,
+    user_id,
+    IFNULL(transaction_type, 'normal_coin') AS transaction_type,
+    value
+  FROM
+    `ivory-setup-377000.games_silver.transactions_treated`),
+  transactions_pivot AS (
+  SELECT
+    game_id,
+    event_at,
+    transaction_id,
+    user_id,
+    normal_coin,
+    premium_coin,
+    cosmetic_item
+  FROM
+    transactions_treated PIVOT(SUM(value) FOR transaction_type IN ('normal_coin',
+        'premium_coin',
+        'comestic_item' AS cosmetic_item)))
+  SELECT
+    t.game_id,
+    g.game_name,
+    DATE(t.event_at) AS date,
+    COUNT(t.transaction_id) AS transactions_qty,
+    COUNT(DISTINCT t.user_id) AS distinct_users_qty,
+    ROUND(SUM(t.normal_coin), 2) AS normal_coin_value_transacted,
+    ROUND(SUM(t.premium_coin), 2) AS premium_coin_value_transacted,
+    ROUND(SUM(t.cosmetic_item), 2) AS cosmetic_item_value_transacted,
+    ROUND(SUM(t.normal_coin) + SUM(t.premium_coin) + SUM(t.cosmetic_item), 2) AS total_transacted
+  FROM
+    transactions_pivot t
+  LEFT JOIN
+    `ivory-setup-377000.games_silver.games_treated` g
+  USING
+    (game_id)
+  GROUP BY
+    t.game_id,
+    g.game_name,
+    DATE(t.event_at)
