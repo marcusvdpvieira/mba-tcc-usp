@@ -1,0 +1,49 @@
+config {
+  schema: "analytics_gold",
+  name: "reviews_agg",
+  type: "table",
+  description: "Contains the games' reviews aggregated and joined with 'games_silver.games_treated'. The table is updated every hour.",
+  columns: {
+    game_id: "Game's unique ID.",
+    game_name: "Game's name.",
+    date: "Date of reference.",
+    average_review_score: "Average review score.",
+    total_positive: "Total positive reviews.",
+    total_negative: "Total negative reviews.",
+    total_reviews: "Total reviews."
+  },
+  tags: ["hourly"],
+  assertions: {
+    nonNull: ["game_id"],
+    uniqueKey: ["game_id", "date"]
+  },
+  dependencies: ["reviews_treated", "games_treated"] 
+}
+
+WITH
+  reviews_day AS (
+  SELECT
+    g.game_id,
+    g.game_name,
+    DATE(r.extracted_at) AS date,
+    AVG(r.review_score) AS average_review_score,
+    MAX(r.total_positive) AS total_positive,
+    MAX(r.total_negative) AS total_negative,
+    MAX(r.total_reviews) AS total_reviews
+  FROM
+    `ivory-setup-377000.customer_support_silver.reviews_treated` r
+  LEFT JOIN
+    `ivory-setup-377000.games_silver.games_treated` g
+  USING
+    (steam_app_id)
+  GROUP BY
+    g.game_id,
+    g.game_name,
+    DATE(r.extracted_at))
+SELECT
+  *,
+  IFNULL(total_reviews - lag(total_reviews) OVER(PARTITION BY game_id ORDER BY date), 0) AS reviews,
+  IFNULL(total_positive - lag(total_positive) OVER(PARTITION BY game_id ORDER BY date), 0) AS positive_reviews,
+  IFNULL(total_negative - lag(total_negative) OVER(PARTITION BY game_id ORDER BY date), 0) AS negative_reviews,
+FROM
+  reviews_day
