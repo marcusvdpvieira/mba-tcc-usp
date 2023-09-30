@@ -1,0 +1,6 @@
+{
+  "name": "tcc-mba-usp",
+  "dependencies": {
+    "@dataform/core": "2.0.1"
+  }
+}
