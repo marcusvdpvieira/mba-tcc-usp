@@ -1,0 +1,96 @@
+config {
+  schema: "analytics_gold",
+  name: "games_metrics",
+  type: "table",
+  description: "Contains the games' metrics aggregated and joined with the other 'analytics_gold.'. The table is updated every hour.",
+  columns: {
+    game_id: "Game's unique ID.",
+    game_name: "Game's name.",
+    date: "Date of reference.",
+    transactions_qty: "Transactions quantity.",
+    distinct_users_qty: "Distinct paying users quantity.",
+    normal_coin_value_transacted: "Sum of the value transactioned on normal coins.",
+    premium_coin_value_transacted: "Sum of the value transactioned on premium coins.",
+    cosmetic_item_value_transacted: "Sum of the value transactioned on cosmetic items.",
+    total_transacted: "Sum of the total value transactioned.",
+    sales_qty: "Sales quantity.",
+    discount_sales_qty: "Discount sales quantity.",
+    average_discount: "Average discount per sale.",
+    average_actual_price: "Average actual price per sale.",
+    average_paid_price: "Average paid price per sale.",
+    total_actual_price: "Total actual price.",
+    total_paid_price: "Total paid price.",
+    average_review_score: "Average review score.",
+    total_positive: "Total positive reviews.",
+    total_negative: "Total negative reviews.",
+    total_reviews: "Total reviews."
+  },
+  tags: ["hourly"],
+  assertions: {
+    nonNull: ["game_id"],
+    uniqueKey: ["game_id", "date"]
+  },
+  dependencies: ["transactions_agg", "sales_agg", "reviews_agg"] 
+}
+
+WITH
+  transactions_df AS (
+  SELECT
+    game_id,
+    game_name,
+    date,
+    STRUCT(transactions_qty,
+      distinct_users_qty,
+      normal_coin_value_transacted,
+      premium_coin_value_transacted,
+      cosmetic_item_value_transacted,
+      total_transacted) AS transactions
+  FROM
+    `ivory-setup-377000.analytics_gold.transactions_agg`),
+  sales_df AS (
+  SELECT
+    game_id,
+    game_name,
+    date,
+    STRUCT(sales_qty,
+      discount_sales_qty,
+      average_discount,
+      average_actual_price,
+      average_paid_price,
+      total_actual_price,
+      total_paid_price) AS sales
+  FROM
+    `ivory-setup-377000.analytics_gold.sales_agg`),
+  reviews_df AS (
+  SELECT
+    game_id,
+    game_name,
+    date,
+    STRUCT(average_review_score,
+      reviews,
+      positive_reviews,
+      negative_reviews,
+      total_positive,
+      total_negative,
+      total_reviews) AS reviews
+  FROM
+    `ivory-setup-377000.analytics_gold.reviews_agg`)
+SELECT
+  t.game_id,
+  t.game_name,
+  t.date,
+  t.transactions,
+  s.sales,
+  r.reviews
+FROM
+  transactions_df t
+LEFT JOIN
+  sales_df s
+USING
+  (game_id,
+    date)
+LEFT JOIN
+  reviews_df r
+USING
+  (game_id,
+    date)
