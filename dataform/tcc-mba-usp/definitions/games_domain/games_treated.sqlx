@@ -1,0 +1,28 @@
+config {
+  schema: "games_silver",
+  name: "games_treated",
+  type: "table",
+  description: "Contains the games info. The table is updated every day at 7 AM BRT.",
+  columns: {
+    game_id: "Game's unique ID.",
+    game_name: "Game's name.",
+    released_at: "Date when the game was released at.",
+    version: "Current game version."
+  },
+  tags: ["daily_7_am"],
+  assertions: {
+    nonNull: ["game_id"],
+    uniqueKey: ["game_id"]
+  }
+}
+
+
+SELECT
+  SAFE_CAST(gameId AS STRING) AS game_id,
+  SAFE_CAST(steamId AS STRING) AS steam_app_id,
+  gameName AS game_name,
+  steamName AS steam_game_name,
+  releaseDate AS released_at,
+  version
+FROM
+  `games_bronze.games_raw`
